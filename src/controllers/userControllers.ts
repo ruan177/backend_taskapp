@@ -1,6 +1,7 @@
 import {FastifyRequest, FastifyReply } from 'fastify';
 import {compare, hash} from 'bcrypt'
 import {prisma} from '../lib/prisma'
+import z from 'zod'
 
 interface User {
     id: number;
@@ -8,6 +9,7 @@ interface User {
     email: string;
     password: string;
   }
+  
   
  export const deleteUserHandler = async (request: FastifyRequest<{Params: {id: number}}>, reply: FastifyReply): Promise<any> => {
     const userId = request.params.id;
@@ -34,16 +36,15 @@ interface User {
         deletedUser
       };
   
-    } catch (error) {
-      return {
-        error: error.message
-      };
+    } catch (error: any) {
+      return reply.status(422).send(error.message)
     }
   };
   
   export  const updateUserHandler = async (request: FastifyRequest<{Params: {id: number}}>, reply: FastifyReply): Promise<any> => {
-    const userId = request.params.id
-    const { email, password } = request.body as User;
+    const id = request.params.id
+    const userId =parseInt(id);
+    const {name, email, password } = request.body as User;
   
     try {
       const userExists = await prisma.user.findFirst({
@@ -55,26 +56,26 @@ interface User {
       if (!userExists) {
         throw new Error("User not found");
       }
+      const hashedPassword: string = await hash(password, 8);
   
       const updatedUser = await prisma.user.update({
         where: {
           id: userId
         },
         data: {
+          name,
           email,
-          password
+          password: hashedPassword
         }
       });
   
       return {
-        message: "User updated successfully",
         updatedUser
-      };
+      }
+      
   
-    } catch (error) {
-      return {
-        error: error.message
-      };
+    } catch (error: any) {
+      return reply.status(422).send(error.message)
     }
   };
   
@@ -94,12 +95,10 @@ interface User {
   
       return {
         response
-      };
+      }
   
-    } catch (error) {
-      return {
-        error: error.message
-      };
+    } catch (error: any) {
+      return reply.status(422).send(error.message)
     }
   };
   
@@ -124,13 +123,15 @@ interface User {
       }
   
       return {
-        id: userAlreadyExists.id
-      };
+        id:userAlreadyExists.id
+      }
+        
+      
   
-    } catch (error) {
-      return {
-        error: error.message
-      };
+    } catch (error: any) {
+      
+       return reply.status(422).send(error.message)
+      
     }
   };
   

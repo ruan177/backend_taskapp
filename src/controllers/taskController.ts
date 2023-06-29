@@ -1,5 +1,8 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '../lib/prisma';
+import z from 'zod'
+import  DateTime  from 'prisma/prisma-client';
+import dayjs from 'dayjs'
 
 interface Task {
   id: number;
@@ -11,14 +14,20 @@ interface Task {
 
 export const createTaskHandler = async (request: FastifyRequest, reply: FastifyReply): Promise<any> => {
   const { title, startdate, enddate, authorId } = request.body as Task;
+  const startDateConv = dayjs(startdate).toDate();
+  const endDateConv = dayjs(enddate).toDate();
+  console.log(startDateConv, endDateConv);
+
 
   try {
     const createdTask = await prisma.task.create({
       data: {
         title,
-        startdate,
-        enddate,
-        authorId
+        startdate: startDateConv,
+        enddate: endDateConv,
+        author: {
+          connect: { id: Number(authorId) } // Assuming the author ID is a number
+        }
       }
     });
 
@@ -27,44 +36,40 @@ export const createTaskHandler = async (request: FastifyRequest, reply: FastifyR
       task: createdTask
     };
 
-  } catch (error) {
-    return {
-      error: error.message
-    };
+  } catch (error: any) {
+    return reply.status(422).send(error.message)
   }
 };
 
-export const getTaskHandler = async (request: FastifyRequest<{Params: {id: number}}>, reply: FastifyReply): Promise<any> => {
-  const taskId = request.params.id;
+export const getTasksHandler = async (request: FastifyRequest<{Querystring: {userId: number}}>, reply: FastifyReply): Promise<any> => {
+  const userId = request.query.userId;
+
 
   try {
-    const task = await prisma.task.findUnique({
-      where: {
-        id: taskId
-      },
-      include: {
-        author: true
+    const tasks = await prisma.task.findMany({
+      where:{
+        authorId: userId
       }
     });
+  
 
-    if (!task) {
-      throw new Error("Task not found");
+    if (!tasks) {
+      throw new Error("Tasks not found");
     }
 
     return {
-      task
+      tasks
     };
 
-  } catch (error) {
-    return {
-      error: error.message
-    };
+  } catch (error: any) {
+    return reply.status(422).send(error.message)
   }
 };
 
 export const updateTaskHandler = async (request: FastifyRequest<{Params: {id: number}}>, reply: FastifyReply): Promise<any> => {
-  const taskId = request.params.id
-  const { title, startdate, enddate, authorId } = request.body as Task;
+  const id = request.params.id;
+  const taskId = parseInt(id);
+  const { title, startdate, enddate, authorId }: Task = request.body as Task;
 
   try {
     const updatedTask = await prisma.task.update({
@@ -84,16 +89,14 @@ export const updateTaskHandler = async (request: FastifyRequest<{Params: {id: nu
       task: updatedTask
     };
 
-  } catch (error) {
-    return {
-      error: error.message
-    };
+  } catch (error: any) {
+    return reply.status(422).send(error.message)
   }
 };
 
 export const deleteTaskHandler = async (request: FastifyRequest<{Params: {id: number}}>, reply: FastifyReply): Promise<any> => {
-  const taskId = request.params.id;
-
+  const id = request.params.id;
+  const taskId = parseInt(id);
   try {
     const deletedTask = await prisma.task.delete({
       where: {
@@ -106,9 +109,11 @@ export const deleteTaskHandler = async (request: FastifyRequest<{Params: {id: nu
       task: deletedTask
     };
 
-  } catch (error) {
-    return {
-      error: error.message
-    };
+  } catch (error: any) {
+    return reply.status(422).send(error.message)
   }
+}
+
+function jsonParse(startdate: Date) {
+  throw new Error('Function not implemented.');
 }
